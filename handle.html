@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Action</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #059669;
+            --error: #dc2626;
+            --background: #f9fafb;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --border: #e5e7eb;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: var(--background);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            width: 100%;
+        }
+
+        h1 {
+            margin: 0 0 1.5rem;
+            font-size: 1.5rem;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .passkey-options {
+            margin: 1.5rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .passkey-option {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            background: var(--card-bg);
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .passkey-option:hover {
+            background: #f3f4f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .passkey-option:active {
+            transform: translateY(0);
+        }
+
+        .passkey-icon {
+            width: 2rem;
+            height: 2rem;
+            margin-right: 1rem;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .passkey-details {
+            flex: 1;
+        }
+
+        .passkey-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .passkey-id {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .button {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s ease-in-out;
+        }
+
+        .button:hover {
+            background: var(--primary-hover);
+        }
+
+        #status {
+            margin-top: 1.5rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background: #f3f4f6;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .success { color: var(--success); }
+        .error { color: var(--error); }
+        .loading { color: var(--primary); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wallet Action</h1>
+        <div id="passkey-options" class="passkey-options"></div>
+        <div id="status"></div>
+        <button id="create-new-passkey" class="button">Create New Passkey</button>
+    </div>
+
+    <script type="module">
+        // Utils Module
+        const Utils = {
+            arrayBufferToBase64Url(buffer) {
+                const bytes = new Uint8Array(buffer);
+                return btoa(String.fromCharCode(...bytes))
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+            },
+
+            base64UrlToArrayBuffer(base64url) {
+                const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+                const binary = atob(base64);
+                return Uint8Array.from(binary, c => c.charCodeAt(0)).buffer;
+            },
+
+            generateRandomChallenge() {
+                const array = new Uint8Array(32);
+                crypto.getRandomValues(array);
+                return array;
+            }
+        };
+
+        // Storage Module
+        const Storage = {
+            getCredentials() {
+                const credentialId = localStorage.getItem("CREDENTIAL_ID");
+                const publicKey = localStorage.getItem("PUBLIC_KEY");
+                return credentialId && publicKey ? [{ credentialId, publicKey }] : [];
+            },
+
+            saveCredential(credentialId, publicKey) {
+                localStorage.setItem("CREDENTIAL_ID", credentialId);
+                localStorage.setItem("PUBLIC_KEY", publicKey);
+                localStorage.setItem("WALLET_STATUS", "TRUE");
+            }
+        };
+
+        // UI Module
+        const UI = {
+            displayStatus(message, type) {
+                const status = document.getElementById("status");
+                status.textContent = message;
+                status.className = type;
+            },
+
+            renderPasskeyOptions(credentials, onSelect) {
+                const passkeyOptions = document.getElementById("passkey-options");
+                passkeyOptions.innerHTML = "";
+                
+                credentials.forEach((cred, index) => {
+                    const option = document.createElement("div");
+                    option.className = "passkey-option";
+                    
+                    const icon = document.createElement("div");
+                    icon.className = "passkey-icon";
+                    icon.textContent = `${index + 1}`;
+                    
+                    const details = document.createElement("div");
+                    details.className = "passkey-details";
+                    
+                    const title = document.createElement("div");
+                    title.className = "passkey-title";
+                    title.textContent = `Passkey ${index + 1}`;
+                    
+                    const id = document.createElement("div");
+                    id.className = "passkey-id";
+                    id.textContent = `ID: ${cred.credentialId.slice(0, 10)}...`;
+                    
+                    details.appendChild(title);
+                    details.appendChild(id);
+                    option.appendChild(icon);
+                    option.appendChild(details);
+                    
+                    option.onclick = () => onSelect(cred);
+                    passkeyOptions.appendChild(option);
+                });
+            }
+        };
+
+        // WebAuthn Module
+        const WebAuthn = {
+            async createPasskey() {
+                try {
+                    const userData = Utils.generateRandomChallenge();
+                    const userName = `user_${Date.now()}`;
+
+                    const credential = await navigator.credentials.create({
+                        publicKey: {
+                            challenge: Utils.generateRandomChallenge(),
+                            rp: { name: "Wallet App" },
+                            user: {
+                                id: userData,
+                                name: userName,
+                                displayName: userName
+                            },
+                            pubKeyCredParams: [
+                                { type: "public-key", alg: -7 },
+                                { type: "public-key", alg: -257 }
+                            ],
+                            authenticatorSelection: {
+                                authenticatorAttachment: "platform",
+                                residentKey: "required",
+                                requireResidentKey: true
+                            }
+                        }
+                    });
+
+                    if (!credential) throw new Error("No credential returned");
+
+                    const response = credential.response;
+                    const pubkeyBuffer = response.getPublicKey();
+                    if (!pubkeyBuffer) throw new Error("No public key returned");
+
+                    const key = await crypto.subtle.importKey(
+                        "spki",
+                        pubkeyBuffer,
+                        { name: "ECDSA", namedCurve: "P-256" },
+                        true,
+                        ["verify"]
+                    );
+
+                    const jwk = await crypto.subtle.exportKey("jwk", key);
+                    if (!jwk.x || !jwk.y) throw new Error("Invalid JWK");
+
+                    const x = Buffer.from(jwk.x, "base64");
+                    const y = Buffer.from(jwk.y, "base64");
+                    const isYEven = BigInt(`0x${y.toString("hex")}`) % 2n === 0n;
+                    const compressedKey = Buffer.concat([
+                        Buffer.from([isYEven ? 0x02 : 0x03]),
+                        x
+                    ]);
+
+                    const credentialId = Utils.arrayBufferToBase64Url(credential.rawId);
+                    const publicKeyHex = compressedKey.toString('base64');
+
+                    Storage.saveCredential(credentialId, publicKeyHex);
+                    UI.displayStatus("Passkey created successfully!", "success");
+
+                    return { credentialId, publicKey: publicKeyHex, status: "created" };
+                } catch (error) {
+                    UI.displayStatus(`Error creating passkey: ${error.message}`, "error");
+                    throw error;
+                }
+            },
+
+            async authenticate(credentialId) {
+                const assertion = await navigator.credentials.get({
+                    publicKey: {
+                        challenge: Utils.generateRandomChallenge(),
+                        allowCredentials: [{
+                            id: Utils.base64UrlToArrayBuffer(credentialId),
+                            type: "public-key"
+                        }],
+                        userVerification: "preferred",
+                        timeout: 60000
+                    }
+                });
+
+                if (!assertion) throw new Error("Authentication failed");
+                UI.displayStatus("Wallet connected successfully!", "success");
+                return assertion;
+            },
+
+            async signMessage(credentialId, message) {
+                const credential = await navigator.credentials.get({
+                    publicKey: {
+                        challenge: Utils.base64UrlToArrayBuffer(message),
+                        allowCredentials: [{
+                            type: "public-key",
+                            id: Utils.base64UrlToArrayBuffer(credentialId)
+                        }]
+                    }
+                });
+
+                if (!credential) throw new Error("No credential returned");
+                const response = credential.response;
+                const signature = new Uint8Array(response.signature);
+                const r = signature.slice(4, 36);
+                const s = signature.slice(38, 70);
+                
+                UI.displayStatus("Message signed successfully!", "success");
+                return new Uint8Array([...r, ...s]);
+            }
+        };
+
+        // Main Wallet Controller
+        const WalletController = {
+            async sendMessage(data) {
+                if (!window.opener) throw new Error("No parent window");
+                window.opener.postMessage(data, "*");
+                setTimeout(() => window.close(), 2000);
+            },
+
+            async handleConnect(credentials) {
+                if (!credentials.length) {
+                    const result = await WebAuthn.createPasskey();
+                    await this.sendMessage({ type: "WALLET_CONNECTED", data: result });
+                    return;
+                }
+
+                UI.displayStatus("Select a Passkey to connect:", "loading");
+                UI.renderPasskeyOptions(credentials, async (cred) => {
+                    await WebAuthn.authenticate(cred.credentialId);
+                    await this.sendMessage({
+                        type: "WALLET_CONNECTED",
+                        data: { credentialId: cred.credentialId, publicKey: cred.publicKey, status: "existing" }
+                    });
+                });
+            },
+
+            async handleSign(credentials, message) {
+                if (!credentials.length) {
+                    await this.sendMessage({
+                        type: "SIGNATURE_ERROR",
+                        error: "No wallet connected"
+                    });
+                    return;
+                }
+
+                UI.displayStatus("Select a Passkey to sign:", "loading");
+                UI.renderPasskeyOptions(credentials, async (cred) => {
+                    const signature = await WebAuthn.signMessage(cred.credentialId, message);
+                    await this.sendMessage({
+                        type: "SIGNATURE_CREATED",
+                        data: { signature, publicKey: cred.publicKey, message }
+                    });
+                });
+            },
+
+            async initialize() {
+                if (!window.opener) {
+                    UI.displayStatus("Error: No parent window found", "error");
+                    return;
+                }
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const action = urlParams.get("action");
+                const message = urlParams.get("message");
+                const credentials = Storage.getCredentials();
+
+                document.getElementById("create-new-passkey").onclick = async () => {
+                    const result = await WebAuthn.createPasskey();
+                    await this.sendMessage({ type: "WALLET_CONNECTED", data: result });
+                };
+
+                if (action === "connect") {
+                    await this.handleConnect(credentials);
+                } else if (action === "sign" && message) {
+                    await this.handleSign(credentials, message);
+                } else {
+                    UI.displayStatus("Error: Invalid action or missing message", "error");
+                    setTimeout(() => window.close(), 2000);
+                }
+            }
+        };
+
+        // Initialize
+        window.onload = () => WalletController.initialize();
+    </script>
+</body>
+</html>
