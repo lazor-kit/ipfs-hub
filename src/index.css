@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, sans-serif;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #f9fafb;
+}
+
+.container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.passkey-options {
+  margin: 20px 0;
+}
+
+.passkey-option {
+  padding: 10px;
+  margin: 5px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.passkey-option:hover {
+  background-color: #f3f4f6;
+}
+
+.button {
+  padding: 10px 20px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.button:hover {
+  background-color: #1d4ed8;
+}
+
+#status {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #f3f4f6;
+}
+
+.success { color: #059669; }
+.error { color: #dc2626; }
+.loading { color: #2563eb; }
