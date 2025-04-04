@@ -9,7 +9,7 @@ This project provides a Passkey Sharing Hub, a lightweight interface that allows
 ## 🚀 Key Features
 
 - **Passkey Sharing**: A single passkey stored locally can be reused across multiple dApps and websites
-- **No Server**: All logic is client-side, handled by a single HTML file
+- **No Server**: All logic is client-side
 - **IPFS Hosting**: Hosted on IPFS for global, decentralized access
 - **WebAuthn**: Uses resident keys for secure, device-bound passkey management
 
@@ -28,19 +28,6 @@ The hub acts as an intermediary interface:
 - **Storage**: Manages passkey storage in localStorage
 - **WebAuthn**: Handles passkey creation, authentication, and message signing
 - **WalletController**: Coordinates the flow between dApps and the hub
-
-## 📦 Installation
-
-1. Clone the repository:
-```bash
-git clone [your-repository-url]
-cd ipfs_hub
-```
-
-2. Install dependencies using pnpm:
-```bash
-pnpm install
-```
 
 ## 🚀 Development
 
